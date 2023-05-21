@@ -22,19 +22,9 @@ app.config['MONGO_URI'] = config['PROD']['DB_URI']
 
 chatbot = ChatBot("Ron Obvious")
 
-conversation = [
-    "Hello",
-    "Hi there!",
-    "How are you doing?",
-    "I'm doing great.",
-    "That is good to hear",
-    "Thank you.",
-    "You're welcome."
-]
+conversation = []
 
 trainer = ListTrainer(chatbot)
-
-trainer.train(conversation) 
 
 def get_db():
     """
@@ -51,14 +41,23 @@ def get_db():
 # Use LocalProxy to read the global db instance with just `db`
 db = LocalProxy(get_db)
 
+def getDataset():
+  datasets = db.datasets.find()
+  for x in list(datasets):
+    print(x)
+    conversation.append(x['q'])
+    conversation.append(x['a'])
+  trainer.train(conversation)   
+
 @app.route("/")
 def hello_world():
+    getDataset()
     return "<p>Hello, World!</p>"
 
 def response(user_response):
     robo_response=''
     if(user_response):
-        robo_response=robo_response+"I am sorry! I don't understand you"
+        robo_response="I am sorry! I don't understand you"
         return robo_response
     else:
         robo_response = "test"
