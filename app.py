@@ -10,11 +10,13 @@ from bson.objectid import ObjectId
 from bson.errors import InvalidId
 from chatterbot import ChatBot
 from chatterbot.trainers import ListTrainer
+from flask_cors import CORS, cross_origin
 
 config = configparser.ConfigParser()
 config.read(os.path.abspath(os.path.join(".ini")))
 
 app = Flask(__name__)
+CORS(app)
 app.debug = True
 app.config['MONGO_URI'] = config['PROD']['DB_URI']
 
@@ -105,3 +107,6 @@ def add_comment():
     comment_doc = { 'movie_id' : movie_id, 'name' : name, 'email' : email,'text' : comment, 'date' : date}
     db.comments.insert_one(comment_doc)
     return jsonify({'a':"data added"}) 
+
+
+
