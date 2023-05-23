@@ -1,111 +1,56 @@
-import configparser
-import os
-import bson
-from flask import Flask, current_app, g, jsonify, request
-from werkzeug.local import LocalProxy
-from flask_pymongo import PyMongo
-
-from pymongo.errors import DuplicateKeyError, OperationFailure
-from bson.objectid import ObjectId
-from bson.errors import InvalidId
-from chatterbot import ChatBot
-from chatterbot.trainers import ListTrainer
+from flask import Flask
+from flask import request
+import json 
+import numpy as np
+from tensorflow import keras
+from sklearn.preprocessing import LabelEncoder
 from flask_cors import CORS, cross_origin
+from flask import jsonify
 
-config = configparser.ConfigParser()
-config.read(os.path.abspath(os.path.join(".ini")))
+import colorama 
+colorama.init()
+from colorama import Fore, Style, Back
+
+import random
+import pickle
 
 app = Flask(__name__)
-CORS(app)
-app.debug = True
-app.config['MONGO_URI'] = config['PROD']['DB_URI']
-
-chatbot = ChatBot("Ron Obvious")
-
-conversation = []
-
-trainer = ListTrainer(chatbot)
-
-def get_db():
-    """
-    Configuration method to return db instance
-    """
-    db = getattr(g, "_database", None)
-
-    if db is None:
-
-        db = g._database = PyMongo(current_app).db
-       
-    return db
-
-# Use LocalProxy to read the global db instance with just `db`
-db = LocalProxy(get_db)
-
-def getDataset():
-  datasets = db.datasets.find()
-  for x in list(datasets):
-    print(x)
-    conversation.append(x['q'])
-    conversation.append(x['a'])
-  trainer.train(conversation)   
+cors = CORS(app)
 
 @app.route("/")
 def hello_world():
-    getDataset()
     return "<p>Hello, World!</p>"
 
-def response(user_response):
-    robo_response=''
-    if(user_response):
-        robo_response="I am sorry! I don't understand you"
-        return robo_response
-    else:
-        robo_response = "test"
-        return robo_response
+with open("intents.json") as file:
+    data = json.load(file)
+
+# load trained model
+model = keras.models.load_model('chat_model')
+
+# load tokenizer object
+with open('tokenizer.pickle', 'rb') as handle:
+    tokenizer = pickle.load(handle)
+
+# load label encoder object
+with open('label_encoder.pickle', 'rb') as enc:
+    lbl_encoder = pickle.load(enc)
 
 @app.route("/chat", methods=['POST'])
 def chat():
-    data = request.get_json()
-    # return jsonify(data)
-    user_response = data['q']
-    user_response=user_response.lower()
-    if(user_response!='bye'):
-        if(user_response=='thanks' or user_response=='thank you' ):
-            flag=False
-            return jsonify({'a':"ROBO: You are welcome.."})
-        else:
-            print("ROBO: ",end="")
-            print(response(user_response))
-            botResponse = chatbot.get_response(user_response)
-            print(botResponse)
-            return jsonify({'a':str(botResponse)})
-    else:
-        flag=False
-        return jsonify({'a':"ROBO: Bye! take care.."}) 
+
+    content = request.json
+
+    # parameters
+    max_len = 20
     
-@app.route("/testdb", methods=['POST'])
-def add_comment():
-    data = request.get_json()
-    movie_id = data['movie_id']
-    name = data['name']
-    email = data['email']
-    comment = data['comment']
-    date = data['date']
-    """
-    Inserts a comment into the comments collection, with the following fields:
+    inp = content["q"]
 
-    - "name"
-    - "email"
-    - "movie_id"
-    - "text"
-    - "date"
+    result = model.predict(keras.preprocessing.sequence.pad_sequences(tokenizer.texts_to_sequences([inp]),
+                                            truncating='post', maxlen=max_len))
+    tag = lbl_encoder.inverse_transform([np.argmax(result)])
 
-    Name and email must be retrieved from the "user" object.
-    """
-
-    comment_doc = { 'movie_id' : movie_id, 'name' : name, 'email' : email,'text' : comment, 'date' : date}
-    db.comments.insert_one(comment_doc)
-    return jsonify({'a':"data added"}) 
-
-
-
+    for i in data['intents']:
+        if i['tag'] == tag:
+            print(Fore.GREEN + "ChatBot:" + Style.RESET_ALL , np.random.choice(i['responses']))
+            return jsonify({"a":np.random.choice(i['responses'])})
+        # print(Fore.GREEN + "ChatBot:" + Style.RESET_ALL,random.choice(responses))

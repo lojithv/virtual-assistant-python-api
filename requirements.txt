@@ -1,8 +1,9 @@
 Flask
-chatterbot==1.0.4
 pytz
 pymongo
 Flask-PyMongo
 python-dotenv
 flask-cors
+tensorflow
+sklearn
 
