@@ -49,6 +49,9 @@ def chat():
                                             truncating='post', maxlen=max_len))
     tag = lbl_encoder.inverse_transform([np.argmax(result)])
 
+    if tag == ["thanks"] and inp.find("thank") == -1:
+     return jsonify({"a":"Sorry I don't understand your question"})
+
     for i in data['intents']:
         if i['tag'] == tag:
             print(Fore.GREEN + "ChatBot:" + Style.RESET_ALL , np.random.choice(i['responses']))
